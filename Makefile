@@ -1,5 +1,3 @@
-# Makefile for IPI_munmap.c and IPI_membarrier.c and IPI_memprotect.c and check_race_window.c
-
 # Compiler
 CC = gcc
 
@@ -12,7 +10,7 @@ LDFLAGS = -lm
 obj-m += IPI_Virtual.o
 
 # Executable names
-TARGETS = IPI_sched_affinity IPI_munmap IPI_membarrier IPI_memprotect IPI_futex check_race_window 
+TARGETS = IPI_sched_affinity IPI_munmap IPI_membarrier IPI_memprotect IPI_futex check_race_window IPI_TLB_Improved
 
 all: $(TARGETS)
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
@@ -28,9 +26,12 @@ IPI_futex: IPI_futex.c
 	
 IPI_sched_affinity: IPI_sched_affinity.c
 	$(CC) $(CFLAGS) -o IPI_sched_affinity IPI_sched_affinity.c
-	
+
 IPI_membarrier: IPI_membarrier.c
 	$(CC) $(CFLAGS) -o IPI_membarrier IPI_membarrier.c
+
+IPI_TLB_Improved: IPI_TLB_Improved.c
+	$(CC) $(CFLAGS) -o IPI_TLB_Improved IPI_TLB_Improved.c
 
 check_race_window: check_race_window.c
 	$(CC) $(CFLAGS) -o check_race_window check_race_window.c $(LDFLAGS)
